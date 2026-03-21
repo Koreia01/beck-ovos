@@ -1,8 +1,9 @@
-const express = require("express");
+ const express = require("express");
 const router = express.Router();
 
 let pedidos = [];
 
+// Criar pedido simples
 router.post("/pedido", (req, res) => {
   const { nome, produto, endereco } = req.body;
 
@@ -25,6 +26,7 @@ router.post("/pedido", (req, res) => {
   });
 });
 
+// Listar pedidos
 router.get("/pedidos", (req, res) => {
   res.json(pedidos);
 });

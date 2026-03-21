@@ -8,9 +8,10 @@ app.use(cors());
 app.use(express.json());
 
 const pedidosRoutes = require("./routes/pedidos");
+const authRoutes = require("./routes/auth");
+
 app.use("/api", pedidosRoutes);
-
-
+app.use("/api", authRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend rodando 🚀");

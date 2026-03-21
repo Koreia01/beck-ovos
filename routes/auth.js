@@ -42,7 +42,7 @@ router.post("/cadastro", (req, res) => {
   });
 });
 
-// Login simples
+// Login
 router.post("/login", (req, res) => {
   const { email, senha } = req.body;
 
