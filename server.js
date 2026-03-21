@@ -10,6 +10,8 @@ app.use(express.json());
 const pedidosRoutes = require("./routes/pedidos");
 app.use("/api", pedidosRoutes);
 
+
+
 app.get("/", (req, res) => {
   res.send("Backend rodando 🚀");
 });
