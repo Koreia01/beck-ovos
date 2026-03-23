@@ -1,69 +1,87 @@
 const express = require("express");
 const router = express.Router();
+const { createClient } = require("@supabase/supabase-js");
+const supabaseAdmin = require("../lib/supabase");
 
-let usuarios = [];
+const supabaseAuth = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
-// Cadastro
-router.post("/cadastro", (req, res) => {
-  const { nome, email, cpf, telefone, senha } = req.body;
+router.post("/cadastro", async (req, res) => {
+  try {
+    const { nome, email, cpf, telefone, senha } = req.body;
 
-  if (!nome || !email || !cpf || !telefone || !senha) {
-    return res.status(400).json({ erro: "Preencha todos os campos obrigatórios." });
-  }
-
-  const emailJaExiste = usuarios.find((u) => u.email === email);
-  if (emailJaExiste) {
-    return res.status(400).json({ erro: "Este e-mail já está cadastrado." });
-  }
-
-  const cpfJaExiste = usuarios.find((u) => u.cpf === cpf);
-  if (cpfJaExiste) {
-    return res.status(400).json({ erro: "Este CPF já está cadastrado." });
-  }
-
-  const novoUsuario = {
-    id: usuarios.length + 1,
-    nome,
-    email,
-    cpf,
-    telefone,
-    senha
-  };
-
-  usuarios.push(novoUsuario);
-
-  res.status(201).json({
-    mensagem: "Cadastro realizado com sucesso!",
-    usuario: {
-      id: novoUsuario.id,
-      nome: novoUsuario.nome,
-      email: novoUsuario.email
+    if (!nome || !email || !cpf || !telefone || !senha) {
+      return res.status(400).json({ erro: "Preencha todos os campos obrigatórios." });
     }
-  });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: senha,
+      email_confirm: true
+    });
+
+    if (authError) {
+      return res.status(400).json({ erro: authError.message });
+    }
+
+    const userId = authData.user.id;
+
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .insert([
+        {
+          id: userId,
+          full_name: nome,
+          email,
+          cpf,
+          phone: telefone
+        }
+      ]);
+
+    if (profileError) {
+      return res.status(400).json({ erro: profileError.message });
+    }
+
+    return res.status(201).json({
+      mensagem: "Cadastro realizado com sucesso!",
+      usuario: {
+        id: userId,
+        nome,
+        email
+      }
+    });
+  } catch {
+    return res.status(500).json({ erro: "Erro interno no cadastro." });
+  }
 });
 
-// Login
-router.post("/login", (req, res) => {
-  const { email, senha } = req.body;
+router.post("/login", async (req, res) => {
+  try {
+    const { email, senha } = req.body;
 
-  if (!email || !senha) {
-    return res.status(400).json({ erro: "Informe e-mail e senha." });
-  }
-
-  const usuario = usuarios.find((u) => u.email === email && u.senha === senha);
-
-  if (!usuario) {
-    return res.status(401).json({ erro: "E-mail ou senha inválidos." });
-  }
-
-  res.json({
-    mensagem: "Login realizado com sucesso!",
-    usuario: {
-      id: usuario.id,
-      nome: usuario.nome,
-      email: usuario.email
+    if (!email || !senha) {
+      return res.status(400).json({ erro: "Informe e-mail e senha." });
     }
-  });
+
+    const { data, error } = await supabaseAuth.auth.signInWithPassword({
+      email,
+      password: senha
+    });
+
+    if (error) {
+      return res.status(401).json({ erro: "E-mail ou senha inválidos." });
+    }
+
+    return res.json({
+      mensagem: "Login realizado com sucesso!",
+      session: data.session,
+      usuario: data.user
+    });
+  } catch {
+    return res.status(500).json({ erro: "Erro interno no login." });
+  }
 });
 
 module.exports = router;

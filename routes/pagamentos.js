@@ -1,13 +1,10 @@
 const express = require("express");
 const axios = require("axios");
+const supabase = require("../lib/supabase");
+
 const router = express.Router();
 
-let pagamentos = [];
-
-// Criar pagamento Pix real na Sigilo Pay
 router.post("/criar-pix", async (req, res) => {
-  console.log("Recebeu requisição para criar pagamento Pix:", req.body);
-
   try {
     const {
       nomeCompleto,
@@ -77,45 +74,37 @@ router.post("/criar-pix", async (req, res) => {
 
     const data = response.data;
 
-    const novoPagamento = {
-      id: pagamentos.length + 1,
-      identifier,
-      nomeCompleto,
-      email,
-      telefone,
-      cpf,
-      endereco: {
-        cep,
-        rua,
-        numero,
-        complemento: complemento || ""
-      },
-      produtos,
-      amount: Number(amount),
-      shippingFee: Number(shippingFee || 0),
-      extraFee: Number(extraFee || 0),
-      discount: Number(discount || 0),
-      transactionId: data.transactionId,
-      status: data.status,
-      fee: data.fee || 0,
-      order: data.order || null,
-      pix: data.pix || null,
-      details: data.details || null,
-      criadoEm: new Date()
-    };
+    const { data: paymentSaved, error: paymentError } = await supabase
+      .from("payments")
+      .insert([
+        {
+          order_id: null,
+          provider: "sigilo_pay",
+          provider_transaction_id: data.transactionId,
+          identifier,
+          status: data.status,
+          amount: Number(amount),
+          fee: data.fee || 0,
+          pix_code: data.pix?.code || null,
+          pix_qr_base64: data.pix?.base64 || null,
+          pix_qr_image_url: data.pix?.image || null,
+          raw_response: data
+        }
+      ])
+      .select();
 
-    pagamentos.push(novoPagamento);
+    if (paymentError) {
+      return res.status(400).json({
+        erro: "Erro ao salvar pagamento.",
+        detalhes: paymentError.message
+      });
+    }
 
     return res.status(201).json({
       mensagem: "Pagamento Pix criado com sucesso!",
-      pagamento: novoPagamento
+      pagamento: paymentSaved[0]
     });
   } catch (error) {
-    console.error(
-      "Erro ao criar pagamento Pix:",
-      error.response?.data || error.message
-    );
-
     return res.status(error.response?.status || 500).json({
       erro: "Não foi possível criar o pagamento Pix.",
       detalhes: error.response?.data || error.message
@@ -123,37 +112,45 @@ router.post("/criar-pix", async (req, res) => {
   }
 });
 
-// Callback da Sigilo Pay
-router.post("/callback/sigilo-pay", (req, res) => {
+router.post("/callback/sigilo-pay", async (req, res) => {
   try {
     const payload = req.body;
-
     const transactionId = payload.transactionId;
     const status = payload.status;
 
-    const pagamento = pagamentos.find(
-      (item) => item.transactionId === transactionId
-    );
+    const { data: pagamento } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("provider_transaction_id", transactionId)
+      .single();
 
     if (pagamento) {
-      pagamento.status = status;
-      pagamento.callbackRecebidoEm = new Date();
-      pagamento.callbackPayload = payload;
+      await supabase
+        .from("payments")
+        .update({
+          status,
+          raw_response: payload
+        })
+        .eq("id", pagamento.id);
     }
 
     return res.status(200).json({ ok: true });
-  } catch (error) {
-    console.error("Erro no callback:", error.message);
-
-    return res.status(500).json({
-      erro: "Erro ao processar callback."
-    });
+  } catch {
+    return res.status(500).json({ erro: "Erro ao processar callback." });
   }
 });
 
-// Listar pagamentos
-router.get("/pagamentos", (req, res) => {
-  res.json(pagamentos);
+router.get("/pagamentos", async (req, res) => {
+  const { data, error } = await supabase
+    .from("payments")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return res.status(400).json({ erro: error.message });
+  }
+
+  res.json(data);
 });
 
 module.exports = router;

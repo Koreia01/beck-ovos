@@ -10,18 +10,22 @@ app.use(express.json());
 const pedidosRoutes = require("./routes/pedidos");
 const authRoutes = require("./routes/auth");
 const pagamentoRoutes = require("./routes/pagamentos");
-console.log("CARREGOU ROTA DE PAGAMENTOS");
+const produtosRoutes = require("./routes/produtos");
 
 app.use("/api", pedidosRoutes);
 app.use("/api", authRoutes);
 app.use("/api", pagamentoRoutes);
+app.use("/api", produtosRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend rodando 🚀");
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3333;
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
+
+console.log("SUPABASE URL:", process.env.SUPABASE_URL);
+console.log("SUPABASE KEY:", process.env.SUPABASE_SERVICE_ROLE_KEY ? "OK" : "NÃO CARREGOU");
