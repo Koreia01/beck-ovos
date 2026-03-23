@@ -52,7 +52,7 @@ router.post("/cadastro", async (req, res) => {
         email
       }
     });
-  } catch {
+  } catch (error) {
     return res.status(500).json({ erro: "Erro interno no cadastro." });
   }
 });
@@ -79,7 +79,7 @@ router.post("/login", async (req, res) => {
       session: data.session,
       usuario: data.user
     });
-  } catch {
+  } catch (error) {
     return res.status(500).json({ erro: "Erro interno no login." });
   }
 });
